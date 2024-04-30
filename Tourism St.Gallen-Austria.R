@@ -2,11 +2,12 @@
 
 
 #Load necessary packages
-lib("readxl")
-lib("dplyr")
-lib("ggplot2")
-lib("tsibble")
-lib("forecast")
+library("readxl")
+library("dplyr")
+library("ggplot2")
+library("tsibble")
+library("forecast")
+library("ggseas")
 
 
 # Set working directory
@@ -63,6 +64,16 @@ ggplot(sg_data, aes(x = Date, y = value, group = 1)) +
   labs(x = 'Year', y = 'Number of Tourists', title = 'Total visitors in St.Gallen from Austria by month') +
   theme_minimal()
 
+##--------------- Monthly trend and seasonality analysis (STL) -----------
+#use STL decomposition to see the trend and seasonality more clearly
+ts_sg_data <- ts(sg_data$value, frequency = 12)
+decomposition_sg <- stl(ts_sg_data, s.window = "periodic")
+plot(decomposition_sg, main = "STL Decomposition of Tourism time series")
 
+#We can see even better the strong seasonality component of the tourism that characterizes this data set
+#This suggests an influence of the period of the year on the number of visitors in St-Gallen
+#The trend can be seen as "stable" the only outlier is the COVID period (2020-21)
+#Reminders seem white noise which is good
 
-
+#Seasonal view
+seasonplot(ts_sg_data, main = "Seasonal Plot of Tourism Time Series")
