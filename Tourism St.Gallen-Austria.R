@@ -95,8 +95,8 @@ S_Naive_sg <- snaive(ts_sg_data_clean, h= 15)
 
 # Plot graphs of forecasts
 # 1. Mean
-forecast_main <- forecast(Mean_sg, h = 15)
-plot(forecast_main, main = "Forecast Naive", ylab = "Number of tourists")
+forecast_mean <- forecast(Mean_sg, h = 15)
+plot(forecast_mean, main = "Forecast Naive", ylab = "Number of tourists")
 
 # 2. Naive
 forecast_naive <- forecast(Naive_sg, h = 15)
@@ -138,7 +138,7 @@ ets_model_1 <- ets(ts_sg_data_clean, model = "ANN")
 summary(ets_model_1)
 
 # Compute forecast and plot the result
-forecast_ets_1 <- forecast(ets_model_1, h = 15)  # h indica il numero di periodi da prevedere
+forecast_ets_1 <- forecast(ets_model_1, h = 15)  
 plot(forecast_ets_1, main = "Forecast using ETS(A,N,N)", ylab = "Number of tourists")
 
 # Try to see which ETS is better to use
@@ -152,4 +152,15 @@ plot(forecast_ets_best, main = "Forecast using ETS(A,N,A)", ylab = "Number of to
 ##--------------- Comparisons: Accuracy tests -----------
 accuracy(arima_sg_model)
 accuracy(ets_model_best)
+AIC(arima_sg_model) # 2620
+BIC(arima_sg_model) # 2634
+AIC(ets_model_best) # 3341
+BIC(ets_model_best) # 3392
+
+# Question: ETS or ARIMA?? a little bit confused... advices?
 # Looking at the RMSE (we want the lower) ETS(A,N,A) looks slightly better than the ARIMA model
+accuracy(forecast_naive)
+accuracy(forecast_snaive)
+accuracy(forecast_mean)
+# Interesting to see that looking at the results we have:
+# Naive > S-Naive > Mean forecast
