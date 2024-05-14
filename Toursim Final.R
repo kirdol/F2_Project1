@@ -104,6 +104,7 @@ ggAcf(ts_data)+ggtitle("Autocorrelation of a monthly visits")
 ###------------------Cleaning and Wrangling
 # Assign the original time series data (ts_data) to a new variable (ts_data_method_3)
 # This might be used for applying Method 3 on the time series data
+ts_data_dummy <- ts_data
 ts_data_method_3 <- ts_data
 
 
@@ -120,14 +121,18 @@ ts_data[outlier_indices_to_replace] <- outliers$replacements
 
 #--------------------------------------Method 2: dummy variables
 # Create a binary vector `r` with the same length as `ts_data`, filled with 1s.
-r <- rep(1, length(ts_data))
+#r <- rep(1, length(ts_data_dummy))
+#r
 
 # Set elements of `r` to 0 where the corresponding index of `ts_data` is greater than or equal to March 2020.
-r[which(index(ts_data) >= "2020-Mar")] <- 0
+
+# Convert ts_data to a tsibble object
+#ts_data_dummy <- as_tsibble(ts_data_dummy)
+#r[index(ts_data_dummy) >= "2020-Mar"] <- 0
 
 # Update elements of `r` to 1 where the index of `ts_data` is greater than February 2021.
-r[which(index(ts_data) > "2021-Feb")] <- 1
-r
+#r[which(index(ts_data_dummy) > "2021-Feb")] <- 1
+#r
 
 
 #--------------------------------------Method 3: tsouliers + forecasting
@@ -200,13 +205,13 @@ summary(fit_snaive_method3) #16701.6654
 # The variable r contains dummy variables where 0 represents periods affected by COVID-19 (marked as outliers)
 # and 1 represents non-COVID-19 periods.
 # The auto.arima function automatically selects the best ARIMA model based on AIC/BIC criteria, incorporating the effects of the dummy variables.
-arima_dummy <- auto.arima(ts_data, xreg = r)
+#arima_dummy <- auto.arima(ts_data, xreg = r)
 
 # Forecast for the next 15 months
-forecast_arima <- forecast(arima_dummy, xreg = rep(1, 15))
+#forecast_arima <- forecast(arima_dummy, xreg = rep(1, 15))
 
 # Print the forecasted values, ARIMA(2,0,2)(0,1,1)[12] 
-summary(forecast_arima) # residual s.d 9066.637
+#summary(forecast_arima) # residual s.d 9066.637
 
 
 #---------------fit ETS method
@@ -263,8 +268,11 @@ BIC(fit_arima_method_3) #4520.363
 
 #--------- Choose Arima---------------
 
+# Load the openxlsx package
 
 print(forecast_arima_method_3, level=95)
+write.csv(forecast_arima_method_3, file = "forecast_results_part_1.csv")
+
 
 # Plot the forecast with confidence intervals
 autoplot(forecast_arima_method_3)+ autolayer(ts_data)
