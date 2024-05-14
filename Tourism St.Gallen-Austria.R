@@ -77,3 +77,90 @@ plot(decomposition_sg, main = "STL Decomposition of Tourism time series")
 
 #Seasonal view
 seasonplot(ts_sg_data, main = "Seasonal Plot of Tourism Time Series")
+
+##--------------- Outliers analysis ---------------------------------
+outliers_sg <- tsoutliers(ts_sg_data)
+ts_sg_data_clean <- ts_sg_data
+ts_sg_data_clean[outliers_sg$index] <- outliers_sg$replacements #replace outliers with values suggested
+
+#See the results in a plot, comparing before and after replacement of outliers
+plot(ts_sg_data, main = "SG-AU time series", ylab = "Number of visitors")
+plot(ts_sg_data_clean, main = "SG-AU after outlier replacement", ylab = "Number of visitors")
+
+##--------------- First Forecast analysis: Naive, S-Naive (DA RIVEDERE il plot) -----------
+#Create models to forecast
+Mean_sg <- meanf(ts_sg_data_clean, h=15)
+Naive_sg <- naive(ts_sg_data_clean, h=15)
+S_Naive_sg <- snaive(ts_sg_data_clean, h= 15)
+
+# Plot graphs of forecasts
+# 1. Mean
+forecast_mean <- forecast(Mean_sg, h = 15)
+plot(forecast_mean, main = "Forecast Naive", ylab = "Number of tourists")
+
+# 2. Naive
+forecast_naive <- forecast(Naive_sg, h = 15)
+plot(forecast_naive, main = "Forecast Naive", ylab = "Number of tourists")
+
+# 3. S-Naive
+forecast_snaive <- forecast(S_Naive_sg, h = 15)
+plot(forecast_snaive, main = "Forecast S-Naive", ylab = "Number of tourists")
+
+
+# Plot the three models together to compare
+# Plot first forecast
+plot(forecast_main, main = "Comparison of Forecasts", ylab = "Number of tourists")
+
+# Add second and third forecast
+lines(forecast_naive$mean, col = "red")  # Add Naive forecast
+lines(forecast_snaive$mean, col = "blue")  # Add S-Naive forecast
+legend("topright", legend = c("Mean", "Naive", "S-Naive"), col = c("lightblue", "red", "blue"), lty = 1)
+
+#Naive model takes more into consideration the level of last observation
+#S-Naive takes into consideration the seasonality
+
+
+##--------------- Second Forecast analysis: ARIMA -----------
+# Select best arima from auto.arima function
+arima_sg_model <- auto.arima(ts_sg_data_clean, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
+
+#Summary of the ARIMA model created
+summary(arima_sg_model)
+
+#Forecast for next 15 months (Oct 2023 - Dec 2024)
+forecast_arima_sg <- forecast(arima_sg_model, h = 15)
+plot(forecast_arima_sg, main = "Forecast ARIMA")
+
+##--------------- Third Forecast analysis: ETS -----------
+
+#First try an SES (no trend and no seasonality)
+ets_model_1 <- ets(ts_sg_data_clean, model = "ANN")
+summary(ets_model_1)
+
+# Compute forecast and plot the result
+forecast_ets_1 <- forecast(ets_model_1, h = 15)  
+plot(forecast_ets_1, main = "Forecast using ETS(A,N,N)", ylab = "Number of tourists")
+
+# Try to see which ETS is better to use
+ets_model_best <- ets(ts_sg_data_clean, model = "ZZZ")
+summary(ets_model_best) #ETS(A,N,A) is suggested as actually there is no big trend but great seasonality (additive)
+
+# Compute forecast of ETS (A,N,A) and plot the result
+forecast_ets_best <- forecast(ets_model_best, h = 15)
+plot(forecast_ets_best, main = "Forecast using ETS(A,N,A)", ylab = "Number of tourists")
+
+##--------------- Comparisons: Accuracy tests -----------
+accuracy(arima_sg_model)
+accuracy(ets_model_best)
+AIC(arima_sg_model) # 2620
+BIC(arima_sg_model) # 2634
+AIC(ets_model_best) # 3341
+BIC(ets_model_best) # 3392
+
+# Question: ETS or ARIMA?? a little bit confused... advices?
+# Looking at the RMSE (we want the lower) ETS(A,N,A) looks slightly better than the ARIMA model
+accuracy(forecast_naive)
+accuracy(forecast_snaive)
+accuracy(forecast_mean)
+# Interesting to see that looking at the results we have:
+# Naive > S-Naive > Mean forecast
