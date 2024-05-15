@@ -98,6 +98,14 @@ ggsubseriesplot(ts_sg_data) +
   ggtitle("Subseries analysis") +
   ylab("Number of Tourists")
 
+
+## -------------- First try: No manage of data --------------------
+arima_model <- auto.arima(ts_sg_data, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
+summary(arima_model) #high RMSE and sigma
+
+ets_model <- ets(ts_sg_data, model = "ZZZ")
+summary(ets_model) #Higher AIC and BIC but smaller sigma, almost same RMSE
+
 ##--------------- Outliers analysis ---------------------------------
 outliers_sg <- tsoutliers(ts_sg_data)
 ts_sg_data_clean <- ts_sg_data
@@ -170,7 +178,7 @@ legend("topright", legend = c("Mean", "Naive", "S-Naive"), col = c("lightblue", 
 
 ##--------------- Second Forecast analysis: ARIMA -----------
 # Select best arima from auto.arima function
-arima_sg_model <- auto.arima(ts_sg_data, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
+arima_sg_model <- auto.arima(ts_sg_data_clean, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
 
 #Summary of the ARIMA model created
 summary(arima_sg_model)
@@ -182,7 +190,7 @@ plot(forecast_arima_sg, main = "Forecast ARIMA")
 ##--------------- Third Forecast analysis: ETS -----------
 
 #First try an SES (no trend and no seasonality)
-ets_model_1 <- ets(ts_sg_data, model = "ANN")
+ets_model_1 <- ets(ts_sg_data_clean, model = "ANN")
 summary(ets_model_1)
 
 # Compute forecast and plot the result
@@ -190,7 +198,7 @@ forecast_ets_1 <- forecast(ets_model_1, h = 15)
 plot(forecast_ets_1, main = "Forecast using ETS(A,N,N)", ylab = "Number of tourists")
 
 # Try to see which ETS is better to use
-ets_model_best <- ets(ts_sg_data, model = "ZZZ")
+ets_model_best <- ets(ts_sg_data_clean, model = "ZZZ")
 summary(ets_model_best) #ETS(A,N,A) is suggested as actually there is no big trend but great seasonality (additive)
 
 # Compute forecast of ETS (A,N,A) and plot the result
@@ -283,3 +291,8 @@ print(correlation)
 # Create TSLM model
 tslm_model <- lm(ts_sg_data ~ sg_covid)
 summary(tslm_model)
+accuracy(tslm_model)
+
+## include GDP? but only yearly data and not monthly available
+## create new monthly dataset: join line and interpolate yearly
+## Interaction GDP and covid beta 3
