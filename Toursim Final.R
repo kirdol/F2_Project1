@@ -250,6 +250,7 @@ plot(forecast_arima,include = 95)+ autolayer(original_ts_data)+theme_minimal()
 
 # Add legend outside the plot area with a smaller box
 legend("topleft", legend = c("Forecast", "95% Confidence Interval", "Original Data"), col = c("blue", "gray", "black"), lty = c(1, 1, 1), bty = "o", xpd = TRUE, cex = 0.6)
+
 write.csv(forecast_arima, file = "forecast_results_part_1.csv")
 
 
