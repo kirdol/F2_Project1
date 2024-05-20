@@ -1,5 +1,5 @@
 # load the required packages and install them if they are not.
-packages_loaded <- c(
+packages_loaded <- c("readxl", "dplyr", "ggplot2", "tsibble", "forecast", "ggseas", "fpp2", "timeSeries"
 )
 
 # Function that install the packages if not already installed on your computer

@@ -10,7 +10,6 @@ library("forecast")
 library("ggseas")
 library("fpp2")
 library("timeSeries")
-#library("modeltime")
 
 
 # Set working directory
@@ -34,13 +33,14 @@ data$Monat <- english_months_abb[match(data$Monat, german_months)]
 data$Date <- as.Date(paste(data$Jahr, data$Monat, "1", sep="-"), "%Y-%B-%d")
 
 
-##--------------- Filter Tourism dataset -----------
-
+##--------------- Filter Tourism dataset ----------------
 # Filter the dataset for tourists going to St.Gallen from Austria
+# Explicitly use dplyr's filter function
 sg_data <- data %>%
-  filter(Kanton == "St. Gallen") %>%
-  filter(Herkunftsland == "Österreich") %>%
-  filter(!is.na(value))
+  dplyr::filter(Kanton == "St. Gallen") %>%
+  dplyr::filter(Herkunftsland == "Österreich") %>%
+  dplyr::filter(!is.na(value))
+
 
 # View first lines of dataset
 head(sg_data)
@@ -52,7 +52,7 @@ str(sg_data) #Value as numerical variable and Jahr as character
 ts_sg_data <- ts(sg_data$value, start = c(2005, 1), frequency = 12)
 ts_sg_data
 
-##--------------- Visualizations: Year plot -----------
+##--------------- Visualizations: Year plot ----------------
 # Aggregate data to have total number of visitors from Austria
 year_sg <- sg_data %>%
   group_by(Jahr) %>%
@@ -66,16 +66,16 @@ ts_sg_year_data
 autoplot(ts_sg_year_data)+
   ggtitle("Number of tourists per year") +
   ylab("Number of tourists")
-# Take into account that the sum of tourists for 2023 is only taking into account the first nine months
+# Take into account that the sum of tourists for 2023 is only considering the first nine months
 
-##--------------- Visualizations: Monthly plot -----------
+##--------------- Visualizations: Monthly plot ----------------------
 # Plot monthly data
 autoplot(ts_sg_data)+
   ggtitle("Number of tourists per month") +
   ylab("Number of tourists")
 # We can see there is almost no trend, but huge seasonality
 
-##--------------- Monthly trend and seasonality analysis (STL) -----------
+##---------- Monthly trend and seasonality analysis (STL, Subseries Plot...) -----------
 #First see the autocorrelation plot to have more insights
 acf(ts_sg_data, main = "Autocorrelation of monthly tourism in St.Gallen")
 # Peaks around lag 12 indicates a yearly seasonality pattern
@@ -85,8 +85,8 @@ decomposition_sg <- stl(ts_sg_data, s.window = "periodic")
 plot(decomposition_sg, main = "STL Decomposition of Tourism time series")
 
 #We can see even better the strong seasonality component of the tourism that characterizes this data set
-#This suggests an influence of the period of the year on the number of visitors in St-Gallen
-#The trend can be seen as "stable" the only outlier is the COVID period (2020-21)
+#This suggests an influence of the period of the year on the number of visitors in St.Gallen
+#The trend can be seen as "stable" the only "outlier" is the COVID period (2020-21)
 #Reminders seem white noise which is good
 
 # Create graph seasonality
@@ -101,31 +101,39 @@ ggseasonplot(ts_sg_data) +
 ggsubseriesplot(ts_sg_data) +
   ggtitle("Subseries analysis") +
   ylab("Number of Tourists")
-
+# July-August-September as the peak months in terms of number of visitors from Austria
+# Winter months prove to be the ones with the lowest number of tourists
 
 ## -------------- First try: No manage of data --------------------
+# Mean forecast 
 Mean_sg_no_manipulation <- meanf(ts_sg_data, h = 15)
 summary(Mean_sg_no_manipulation)
-checkresiduals(Mean_sg_no_manipulation)
+plot(Mean_sg_no_manipulation, main = "Forecast Mean", ylab = "Number of tourists")
+checkresiduals(Mean_sg_no_manipulation) # The ACF proves that there exists autocorrelation among the residuals (not good model fit)
 
 Naive_sg_no_manipulation <- naive(ts_sg_data, h = 15)
 summary(Naive_sg_no_manipulation)
-checkresiduals(Naive_sg_no_manipulation)
+plot(Naive_sg_no_manipulation, main = "Forecast Naive", ylab = "Number of tourists")
+checkresiduals(Naive_sg_no_manipulation) # Slightly better but still same pattern
 
 SNaive_sg_no_manipulation <- snaive(ts_sg_data, h = 15)
+plot(SNaive_sg_no_manipulation, main = "Forecast S-Naive", ylab = "Number of tourists")
 summary(SNaive_sg_no_manipulation)
-checkresiduals(SNaive_sg_no_manipulation)
+checkresiduals(SNaive_sg_no_manipulation) # Even if it includes seasonality, not best result
 
 arima_model <- auto.arima(ts_sg_data, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
-summary(arima_model) #high RMSE (127,29) and sigma
+summary(arima_model) # AIC = 2704.36, BIC = 2717.81 
 forecast_arima_model <- forecast(arima_model, h = 15)
-checkresiduals(forecast_arima_model)
+plot(forecast_arima_model, main = "ARIMA model without any manipulation")
+checkresiduals(forecast_arima_model) # better result
+accuracy(forecast_arima_model) # RMSE = 127.29
 
 ets_model <- ets(ts_sg_data, model = "ZZZ")
 summary(ets_model) #Higher AIC and BIC but smaller sigma, almost same RMSE
 forecast_ets_model <- forecast(ets_model, h = 15)
-checkresiduals(ets_model) #Some autocorrelation values are outside the blue lines 
-#(indicates significant values which is not good even if probably negligeable)
+plot(forecast_ets_model, main = "ETS model without any manipulation")
+checkresiduals(ets_model) # Two autocorrelation values are outside the blue lines 
+#(indicates significant autocorrelation of residual values which is not good even if probably negligible)
 
 ##--------------- Outliers analysis ---------------------------------
 outliers_sg <- tsoutliers(ts_sg_data)
@@ -137,7 +145,7 @@ ts_sg_data_clean[outliers_sg$index] <- outliers_sg$replacements #replace outlier
 plot(ts_sg_data, main = "SG-AU time series", ylab = "Number of visitors")
 plot(ts_sg_data_clean, main = "SG-AU after outlier replacement", ylab = "Number of visitors")
 
-##--------------- First Forecast analysis: Naive, S-Naive (DA RIVEDERE il plot) -----------
+##--------------- Forecast analysis with outliers: Mean, Naive, S-Naive -----------
 #Create models to forecast
 Mean_sg <- meanf(ts_sg_data_clean, h=15)
 summary(Mean_sg)
@@ -151,7 +159,7 @@ summary(S_Naive_sg)
 # Plot graphs of forecasts
 # 1. Mean
 forecast_mean <- Mean_sg
-plot(forecast_mean, main = "Forecast Naive", ylab = "Number of tourists")
+plot(forecast_mean, main = "Forecast Mean", ylab = "Number of tourists")
 checkresiduals(forecast_mean)
 
 # 2. Naive
@@ -166,35 +174,28 @@ checkresiduals(forecast_snaive)
 
 # Plot the three models together to compare
 # Plot first forecast
-plot(forecast_main, main = "Comparison of Forecasts", ylab = "Number of tourists")
+plot(ts_sg_data, main = "Comparison of Forecasts", ylab = "Number of tourists")
 
 # Add second and third forecast
+lines(forecast_mean$mean, col = "lightblue")
 lines(forecast_naive$mean, col = "red")  # Add Naive forecast
 lines(forecast_snaive$mean, col = "blue")  # Add S-Naive forecast
-legend("topright", legend = c("Mean", "Naive", "S-Naive"), col = c("lightblue", "red", "blue"), lty = 1)
+legend("topleft", legend = c("Mean", "Naive", "S-Naive"), col = c("lightblue", "red", "blue"), lty = 1)
 
 #Naive model takes more into consideration the level of last observation
 #S-Naive takes into consideration the seasonality
 
-#mean_model<- ts_sg_data %>% model(
-  #Mean = mean(ts_sg_data),
-  #Naive = naive(ts_sg_data),
-  #S_Naive = snaive(ts_sg_data))
-
-
-
-
 ##--------------- Second Forecast analysis: ARIMA -----------
 # Select best arima from auto.arima function
-arima_sg_model <- auto.arima(ts_sg_data_clean, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
+arima_outliers_model <- auto.arima(ts_sg_data_clean, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
 
 #Summary of the ARIMA model created
-summary(arima_sg_model)
+summary(arima_outliers_model)
 
 #Forecast for next 15 months (Oct 2023 - Dec 2024)
-forecast_arima_sg <- forecast(arima_sg_model, h = 15)
-plot(forecast_arima_sg, main = "Forecast ARIMA")
-checkresiduals(forecast_arima_sg)
+forecast_arima_outliers <- forecast(arima_outliers_model, h = 15)
+plot(forecast_arima_outliers, main = "Forecast ARIMA")
+checkresiduals(forecast_arima_outliers)
 
 ##--------------- Third Forecast analysis: ETS -----------
 
@@ -207,60 +208,58 @@ forecast_ets_1 <- forecast(ets_model_1, h = 15)
 plot(forecast_ets_1, main = "Forecast using ETS(A,N,N)", ylab = "Number of tourists")
 
 # Try to see which ETS is better to use
-ets_model_best <- ets(ts_sg_data_clean, model = "ZZZ")
-summary(ets_model_best) #ETS(A,N,A) is suggested as actually there is no big trend but great seasonality (additive)
+ets_model_outliers_best <- ets(ts_sg_data_clean, model = "ZZZ")
+summary(ets_model_outliers_best) #ETS(A,N,A) is suggested as actually there is no big trend but great seasonality (additive)
 
 # Compute forecast of ETS (A,N,A) and plot the result
-forecast_ets_best <- forecast(ets_model_best, h = 15)
-plot(forecast_ets_best, main = "Forecast using ETS(A,N,A)", ylab = "Number of tourists")
+forecast_ets_outliers <- forecast(ets_model_outliers_best, h = 15)
+plot(forecast_ets_outliers, main = "Forecast using ETS(A,N,A)", ylab = "Number of tourists")
 
 ##--------------- Comparisons: Accuracy tests -----------
-accuracy(arima_sg_model)
-accuracy(ets_model_best)
-AIC(arima_sg_model) # 2620
-BIC(arima_sg_model) # 2634
-AIC(ets_model_best) # 3341
-BIC(ets_model_best) # 3392
+accuracy(arima_outliers_model) # RMSE = 105.1622
+accuracy(ets_model_outliers_best) # RMSE = 104.669
+AIC(arima_outliers_model) # 2620
+BIC(arima_outliers_model) # 2634
+AIC(ets_model_outliers_best) # 3341
+BIC(ets_model_outliers_best) # 3392
 
-# cross-validation
-
-# Question: ETS or ARIMA?? a little bit confused... advices?
-# Looking at the RMSE (we want the lower) ETS(A,N,A) looks slightly better than the ARIMA model
 accuracy(forecast_naive)
 accuracy(forecast_snaive)
 accuracy(forecast_mean)
 # Interesting to see that looking at the results we have:
 # Naive > S-Naive > Mean forecast
-# Dummy variables?
+
+#Lower RMSE but outliers just reduce variance, better look another method
 
 ##--------------- COVID-19 Dummy variable ---------------------------------
 #Create dummy variable to manage the COVID-19 period
 start_date <- as.Date("2020-03-01")
-end_date <- as.Date("2021-04-30")
+end_date <- as.Date("2021-04-30") # The months were based on the time series 
 sg_data$sg_covid_dummy <- 1  # Initiate dummy variable at 1
 sg_data$sg_covid_dummy[sg_data$Date >= start_date & sg_data$Date <= end_date] <- 0  # Specified COVID period
 
 sg_covid <- ts(sg_data$sg_covid_dummy, start = c(2005, 1), frequency = 12)
 sg_covid
 
-#Implement dummy variable on time series
-#ts_sg_data_covid <- cbind(ts_sg_data, sg_covid)
-#ts_sg_data_covid
-
 # ------------- Fit ARIMA model with the dummy variable ---------------------
 arima_model_dummy <- auto.arima(ts_sg_data, xreg = sg_covid) # Fit ARIMA model with the dummy variable as an exogenous regressor
-summary(arima_model_dummy)
+summary(arima_model_dummy) # RMSE = 110,9729
+# Resulting model : ARIMA (2,0,0)(0,1,1)[12]
 
 # Forecast for the next 15 months
-forecast_arima_dummy <- forecast(arima_model, xreg = rep(1, 15)) # Make a forecast for the next 15 months using the fitted ARIMA model
+forecast_arima_dummy <- forecast(arima_model_dummy, xreg = rep(1, 15)) # Make a forecast for the next 15 months using the fitted ARIMA model
 
 # Print the forecast
 print(forecast_arima_dummy) # Print the forecasted values
 
+# Plot the forecast with the original data
 plot(forecast_arima_dummy, main = "Forecast of number of tourists using ARIMA model")
-checkresiduals(forecast_arima_dummy)
 
-# CROSS VALIDATION?!
+# Adding a legend to the plot
+legend("topleft", legend = c("Forecast", "Original Data"), 
+       col = c("blue", "black"), lty = 1, bty = "n")
+
+checkresiduals(forecast_arima_dummy)
 
 # ------------- ETS with dummy variable --------------------------
 # No direct support to insert an exogenous variable directly into the modeling
@@ -275,7 +274,7 @@ ts_sg_data_adjusted_covid <- ts_sg_data - sg_covid_effect
 
 # Fit ETS model to the residual time series
 ets_model_covid <- ets(ts_sg_data_adjusted_covid, model = "ZZZ")
-summary(ets_model_covid) #ETS (A,N,A)
+summary(ets_model_covid) #ETS (A,N,A), RMSE = 111.3111
 
 # Forecast for the next 15 months
 forecast_ets_covid <- forecast(ets_model_covid, h = 15)
@@ -285,34 +284,22 @@ print(forecast_ets_covid)
 
 # Plot the forecast
 plot(forecast_ets_covid, main = "Forecast using ETS model with dummy variable")
-
+checkresiduals(forecast_ets_covid)
+# Only one lag of the remainder is significant
 
 # ---------------- Accuracy with dummy ------------------
-accuracy(forecast_arima)
+accuracy(forecast_arima_dummy)
 accuracy(forecast_ets_covid)
-# better accuracy with dummy variable rather than outliers
+# better accuracy for ARIMA in terms of RMSE but also other values (ME, MAE...)
 
 
-
-
-# ---------------- Outliers and dummy ---------------
-arima_model_outliers <- auto.arima(ts_sg_data_clean, xreg = sg_covid) # Fit ARIMA model with the dummy variable as an exogenous regressor
-summary(arima_model_outliers)
-forecast_arima_dummy_outliers <- forecast(arima_model_outliers, xreg = rep(1, 15)) # Make a forecast for the next 15 months using the fitted ARIMA model
-plot(forecast_arima_dummy_outliers)
-
-# --------------- ETS: high alpha and dummy -------
-ets_model_alpha <- ets(ts_sg_data_adjusted_covid, model = "ZZZ", alpha = 0.9)
-summary(ets_model_alpha) # No great results, RMSE still higher
-
-
-#-------------- TSLM ----------------------------
+#-------------- Include other variables with linear regression: TSLM -----------------------
 # Compute correlation between number of visitors and covid
 correlation <- cor(ts_sg_data, sg_covid)
 print(correlation)
 
-# Create TSLM model
-tslm_model <- lm(ts_sg_data ~ sg_covid, data = ts_sg_data_covid)
+# Create First TSLM model
+tslm_model <- lm(ts_sg_data ~ sg_covid, data = ts_sg_data_adjusted_covid)
 summary(tslm_model)
 
 # Create future data for sg_covid (assuming no COVID restrictions for the future period)
@@ -320,7 +307,7 @@ future_sg_covid_only <- data.frame(sg_covid = rep(1, 15))
 
 # Forecast for the next 15 months
 forecast_tourists_covid <- forecast(tslm_model, newdata = future_sg_covid_only)
-accuracy(forecast_tourists_covid)
+accuracy(forecast_tourists_covid) #RMSE really high = 188.2363
 
 
 # Import dataset on GDP_CH
@@ -330,6 +317,7 @@ GDP_CH <- GDP_CH %>%
   rename("Year" = "Gross domestic product (GDP) in Switzerland 2029" ) %>%
   rename("Value" = "...2")
 
+head(GDP_CH)
 str(GDP_CH)
 
 # Create a new dataframe for monthly data
@@ -369,21 +357,17 @@ for (i in 1:(length(unique(GDP_CH$Year)) - 1)) {
 }
 
 # Now GDP_CH_monthly contains the interpolated monthly data between consecutive years
-# Same procedure for GDP from Austria
 
-
-
-
-
-
-# Transform GDP monthly data into a time series
+# Transform GDP monthly data CH into a time series to then compute TSLM
 ts_GDP_CH_monthly <- ts(GDP_CH_monthly$Value, start = c(2005, 1), frequency = 12)
 ts_GDP_CH_monthly
 
-ts_GDP_CH_monthly_truncated <- window(ts_GDP_CH_monthly, end = c(2023, 9)) # Have the time series aligned with covid dummy variable and ts_sg_data
+# Truncate time series to match ts_sg_data
+ts_GDP_CH_monthly_truncated <- window(ts_GDP_CH_monthly, end = c(2023, 9)) # Have the time series aligned in terms of time
 ts_GDP_CH_monthly_truncated
+# The idea: higher GDP if there are more visitors
 
-# Create TSLM model including GDP
+# Create TSLM model including monthly Swiss GDP
 tslm_model_GDP <- lm(ts_sg_data ~ sg_covid + ts_GDP_CH_monthly_truncated)
 summary(tslm_model_GDP)
 accuracy(tslm_model_GDP)
@@ -401,22 +385,23 @@ future_data <- data.frame(
 # Forecast for the next 15 months
 forecast_tourists <- forecast(tslm_model_GDP, newdata = future_data)
 forecast_tourists
-accuracy(forecast_tourists) # we get a better RMSE
+accuracy(forecast_tourists) # we get a better RMSE = 181.0386
 
-# Add a new variable of interaction between GDP and covid as a beta 3
+# Add a new variable of interaction between GDP and COVID pandemic as a beta 3 of the linear model
 # Create a data frame with the necessary variables
-ts_sg_data_covid <- data.frame(
+ts_sg_CH_data_covid <- data.frame(
   ts_sg_data = as.numeric(ts_sg_data),
   sg_covid = as.numeric(sg_covid),
   ts_GDP_CH_monthly_truncated = as.numeric(ts_GDP_CH_monthly_truncated)
 )
 
-# Create the interaction term
-ts_sg_data_covid$interaction_term <- ts_sg_data_covid$sg_covid * ts_sg_data_covid$ts_GDP_CH_monthly_truncated
-ts_sg_data_covid
+
+# Create interaction term monthly swiss GDP x COVID
+ts_sg_CH_data_covid$interaction_term <- ts_sg_CH_data_covid$sg_covid * ts_sg_CH_data_covid$ts_GDP_CH_monthly_truncated
+ts_sg_CH_data_covid
 
 # Fit the TSLM model with the interaction term
-tslm_model_interaction <- lm(ts_sg_data ~ sg_covid + ts_GDP_CH_monthly_truncated + interaction_term, data = ts_sg_data_covid)
+tslm_model_interaction <- lm(ts_sg_data ~ sg_covid + ts_GDP_CH_monthly_truncated + interaction_term, data = ts_sg_CH_data_covid)
 summary(tslm_model_interaction)
 
 # Create a new data frame for forecasting
@@ -430,51 +415,8 @@ future_data_interaction$interaction_term <- future_data_interaction$sg_covid * f
 
 # Forecast for the next 15 months
 forecast_tourists_interaction <- forecast(tslm_model_interaction, newdata = future_data_interaction)
-accuracy(forecast_tourists_interaction)
+accuracy(forecast_tourists_interaction) #slightly better RMSE = 180.9881
 
-# Plot actual versus fitted and forecasted values
-plot(ts_sg_data, main = "Actual vs Fitted and Forecasted Tourist Numbers", ylab = "Tourist Numbers", xlab = "Time")
-lines(fitted(tslm_model_interaction), col = "blue")
-lines(fitted(tslm_model_interaction, newdata = future_data_interaction), col = "red", lty = 2)
-legend("topleft", legend = c("Actual", "Fitted", "Forecast"), col = c("black", "blue", "red"), lty = c(1, 1, 2))
-
-
-
-# Combine actual, fitted, and forecasted values into a data frame
-plot_data <- data.frame(
-  Time = time(ts_sg_data),
-  Actual = ts_sg_data,
-  Fitted = fitted(tslm_model_interaction),
-  Forecast = c(rep(NA, length(ts_sg_data) - length(fitted(tslm_model_interaction))), forecast_tourists_interaction$mean)
-)
-
-# Filter data for plotting from October 2023 onwards
-plot_data <- plot_data[plot_data$Time >= as.Date("2023-10-01"), ]
-
-# Plot actual versus fitted and forecasted values using ggplot
-ggplot(plot_data, aes(x = Time)) +
-  geom_line(aes(y = Actual), color = "black") +
-  geom_line(aes(y = Fitted), color = "blue") +
-  geom_line(aes(y = Forecast), color = "red", linetype = "dashed") +
-  geom_point(aes(y = Actual)) + # Add points to visually inspect data
-  geom_point(aes(y = Fitted)) +
-  geom_point(aes(y = Forecast)) +
-  labs(title = "Actual vs Fitted and Forecasted Tourist Numbers",
-       y = "Tourist Numbers",
-       x = "Time") +
-  theme_minimal()
-
-
-
-
-
-
-
-
-
-
-
-
-## include GDP? but only yearly data and not monthly available
-## create new monthly dataset: join line and interpolate yearly
-## Interaction GDP and covid beta 3
+## ------------ Conclusion: Choose ARIMA with dummy variable -----------------------------
+# Considering COVID, a seasonal forecast and accuracy factors seems the best option
+write.csv(forecast_arima_dummy, file = "forecast_results_part_2.csv")
