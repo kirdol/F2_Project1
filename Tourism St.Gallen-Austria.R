@@ -274,7 +274,7 @@ ts_sg_data_adjusted_covid <- ts_sg_data - sg_covid_effect
 
 # Fit ETS model to the residual time series
 ets_model_covid <- ets(ts_sg_data_adjusted_covid, model = "ZZZ")
-summary(ets_model_covid) #ETS (A,N,A), RMSE = 111.3111
+summary(ets_model_covid) #ETS (A,N,A), RMSE = 111.3111 and a higher AIC and BIC compared to ARIMA model
 
 # Forecast for the next 15 months
 forecast_ets_covid <- forecast(ets_model_covid, h = 15)
