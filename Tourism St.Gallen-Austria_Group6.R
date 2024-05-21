@@ -77,7 +77,7 @@ autoplot(ts_sg_data)+
 
 ##---------- Monthly trend and seasonality analysis (STL, Subseries Plot...) -----------
 #First see the autocorrelation plot to have more insights
-acf(ts_sg_data, main = "Autocorrelation of monthly tourism in St.Gallen")
+ggAcf(ts_sg_data, main = "Autocorrelation of monthly tourism in St.Gallen")
 # Peaks around lag 12 indicates a yearly seasonality pattern
 
 #use STL decomposition to see the trend and seasonality more clearly

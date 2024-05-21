@@ -35,8 +35,8 @@ data$Date <- as.Date(paste(data$Jahr, data$Monat, "1", sep="-"), "%Y-%B-%d")
 
 # Filter data for the Canton of Vaud, if 'Vaud' is the correct name of the canton
 vaud_data <- data %>%
-  filter(Kanton == "Vaud") %>%
-  filter(!is.na(value))
+  dplyr::filter(Kanton == "Vaud") %>%
+  dplyr::filter(!is.na(value))
 
 # View the first few rows of the filtered dataset
 head(vaud_data)
