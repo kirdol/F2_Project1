@@ -247,7 +247,7 @@ summary(arima_model_dummy) # RMSE = 110,9729
 # Resulting model : ARIMA (2,0,0)(0,1,1)[12]
 
 # Forecast for the next 15 months
-forecast_arima_dummy <- forecast(arima_model_dummy, xreg = rep(1, 15)) # Make a forecast for the next 15 months using the fitted ARIMA model
+forecast_arima_dummy <- forecast(arima_model_dummy, xreg = rep(1, 15), level = 95) # Make a forecast for the next 15 months using the fitted ARIMA model
 
 # Print the forecast
 print(forecast_arima_dummy) # Print the forecasted values
@@ -419,4 +419,5 @@ accuracy(forecast_tourists_interaction) #slightly better RMSE = 180.9881
 
 ## ------------ Conclusion: Choose ARIMA with dummy variable -----------------------------
 # Considering COVID, a seasonal forecast and accuracy factors seems the best option
+
 write.csv(forecast_arima_dummy, file = "forecast_results_part_2.csv")
